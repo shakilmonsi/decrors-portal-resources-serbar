@@ -1,7 +1,6 @@
 const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion } = require("mongodb");
-const { query } = require("express");
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 const app = express();
@@ -33,20 +32,24 @@ async function run() {
     app.get("/apponment", async (req, res) => {
       // class 5 add date fext---------------------------
       const date = req.query.date;
-      console.log(date);
+
+      console.log("date is ok", date);
       const query = {};
       const options = await appointmentOptionCollection.find(query).toArray();
-      const bookingQuery = { appointmentDate: date };
+      console.log("tis is option", options);
+      const bookingQuery = { appointmentDat: date };
       const alreadyBooked = await bookingsCollection
         .find(bookingQuery)
         .toArray();
-
+      console.log("this is booked", alreadyBooked);
       // code carefully :D
       options.forEach((option) => {
         const optionBooked = alreadyBooked.filter(
           (book) => book.treatment === option.name
         );
+        console.log(optionBooked);
         const bookedSlots = optionBooked.map((book) => book.slot);
+
         const remainingSlots = option.slots.filter(
           (slot) => !bookedSlots.includes(slot)
         );
@@ -104,10 +107,28 @@ async function run() {
 
     // add booking and data  -------------------------------------------------      --------------------
 
+    app.get("/bookings", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const bookings = await bookingsCollection.find(query).toArray();
+      res.send(bookings);
+    });
+
     app.post("/bookings", async (req, res) => {
       const booking = req.body;
       console.log(booking);
+      const query = {
+        appointmentDate: booking.appointmentDate,
+        email: booking.email,
+        treatment: booking.treatment,
+      };
+      const alreadyBooked = await bookingsCollection.find(query).toArray();
+      if (alreadyBooked.length) {
+        const message = `You already have a booking on ${booking.appointmentDate}`;
+        return res.send({ acknowledged: false, message });
+      }
       const result = await bookingsCollection.insertOne(booking);
+
       res.send(result);
     });
   } finally {
