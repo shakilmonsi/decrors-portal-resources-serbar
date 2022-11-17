@@ -41,16 +41,69 @@ async function run() {
         .find(bookingQuery)
         .toArray();
 
+      // code carefully :D
       options.forEach((option) => {
         const optionBooked = alreadyBooked.filter(
           (book) => book.treatment === option.name
         );
         const bookedSlots = optionBooked.map((book) => book.slot);
-
-        console.log(date, option.name, bookedSlots);
+        const remainingSlots = option.slots.filter(
+          (slot) => !bookedSlots.includes(slot)
+        );
+        option.slots = remainingSlots;
       });
       res.send(options);
     });
+
+    app.get("/v2/apponment", async (req, res) => {
+      const date = req.query.date;
+      const options = await appointmentOptionCollection
+        .aggregate([
+          {
+            $lookup: {
+              from: "bookings",
+              localField: "name",
+              foreignField: "treatment",
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $eq: ["$appointmentDate", date],
+                    },
+                  },
+                },
+              ],
+              as: "booked",
+            },
+          },
+          {
+            $project: {
+              name: 1,
+              slots: 1,
+              booked: {
+                $map: {
+                  input: "$booked",
+                  as: "book",
+                  in: "$$book.slot",
+                },
+              },
+            },
+          },
+          {
+            $project: {
+              name: 1,
+              slots: {
+                $setDifference: ["$slots", "$booked"],
+              },
+            },
+          },
+        ])
+        .toArray();
+      res.send(options);
+    });
+
+    // add booking and data  -------------------------------------------------      --------------------
+
     app.post("/bookings", async (req, res) => {
       const booking = req.body;
       console.log(booking);
