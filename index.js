@@ -175,6 +175,13 @@ async function run() {
       const users = await usersCollection.find(query).toArray();
       res.send(users);
     });
+    // class admin  and ;;;;;;;;;;;;;;;;;;;;;;;;;;;.,.............
+    app.get("/users/admin/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const user = await usersCollection.findOne(query);
+      res.send({ isAdmin: user?.role === "admin" });
+    });
 
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -183,7 +190,15 @@ async function run() {
       res.send(result);
     });
     // class 8 add admin  and link ,//////////////////////////////
-    app.put("/users/admin/:id", async (req, res) => {
+    app.put("/users/admin/:id", verifyJWT, async (req, res) => {
+      // add veriyi add main admin and jwt  token and ;;;;;;;;;;;;;;;;.,
+      const decodedEmail = req.decoded.email;
+      const query = { email: decodedEmail };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "admin") {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      //add admin verify admin.......................
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const option = { upsert: true };
