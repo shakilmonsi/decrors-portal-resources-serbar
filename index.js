@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const port = process.env.PORT || 5000;
@@ -20,6 +20,22 @@ const client = new MongoClient(uri, {
   useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
 });
+function verifyJWT(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).send("unauthorized access");
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
+    if (err) {
+      return res.status(403).send({ message: "forbidden access" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+}
 async function run() {
   try {
     const appointmentOptionCollection = client
@@ -113,6 +129,10 @@ async function run() {
 
     app.get("/bookings", async (req, res) => {
       const email = req.query.email;
+      // const decodedEmail = req.decoded.email;
+      // if (email !== decodedEmail) {
+      //   return res.status(403).send({ message: "forbidden access" });
+      // }
       const query = { email: email };
       const bookings = await bookingsCollection.find(query).toArray();
       res.send(bookings);
@@ -146,14 +166,37 @@ async function run() {
         });
         return res.send({ accessToken: token });
       }
-      res.status(403).send({ accessToken: " " });
-      console.log(user);
+      res.status(403).send({ accessToken: "" });
+    });
+    // class 75-7 add usersAll path
+
+    app.get("/users", async (req, res) => {
+      const query = {};
+      const users = await usersCollection.find(query).toArray();
+      res.send(users);
     });
 
     app.post("/users", async (req, res) => {
       const user = req.body;
       console.log(user);
       const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
+    // class 8 add admin  and link ,//////////////////////////////
+    app.put("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const option = { upsert: true };
+      const updatedDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await usersCollection.updateOne(
+        filter,
+        updatedDoc,
+        option
+      );
       res.send(result);
     });
   } finally {
