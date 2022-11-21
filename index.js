@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
+const { query } = require("express");
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 const app = express();
@@ -48,6 +49,9 @@ async function run() {
     const usersCollection = client
       .db("dectorProtealandddata")
       .collection("users");
+    const doctorsCollection = client
+      .db("dectorProtealandddata")
+      .collection("doctors");
 
     app.get("/apponment", async (req, res) => {
       // class 5 add date fext---------------------------
@@ -123,6 +127,15 @@ async function run() {
         ])
         .toArray();
       res.send(options);
+    });
+    // class 76-2 add specialtuy -----------------
+    app.get("/appointmentSpecialty", async (req, res) => {
+      const query = {};
+      const result = await appointmentOptionCollection
+        .find(query)
+        .project({ name: 1 })
+        .toArray();
+      res.send(result);
     });
 
     // add booking and data  -------------------------------------------------      --------------------
@@ -212,6 +225,20 @@ async function run() {
         updatedDoc,
         option
       );
+      res.send(result);
+    });
+    // class 76 -5  add doctors link create ...................
+
+    app.get("/doctors", async (req, res) => {
+      const query = {};
+      const doctors = await doctorsCollection.find(query).toArray();
+      res.send(doctors);
+    });
+
+    // class 76 -5  add doctors link create ...................
+    app.post("/doctors", async (req, res) => {
+      const doctor = req.body;
+      const result = await doctorsCollection.insertOne(doctor);
       res.send(result);
     });
   } finally {
