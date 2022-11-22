@@ -3,6 +3,9 @@ const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 const { query } = require("express");
+// const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 const app = express();
@@ -21,6 +24,7 @@ const client = new MongoClient(uri, {
   useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
 });
+
 function verifyJWT(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
@@ -52,6 +56,18 @@ async function run() {
     const doctorsCollection = client
       .db("dectorProtealandddata")
       .collection("doctors");
+    //note: make sure you use verifyAdmin after verifyJWT;
+    const verifyAdmin = async (req, res, next) => {
+      // console.log("inside verifyAdmin", req.decoded.email);
+      const decodedEmail = req.decoded.email;
+      const query = { email: decodedEmail };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "admin") {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+
+      next();
+    };
 
     app.get("/apponment", async (req, res) => {
       // class 5 add date fext---------------------------
@@ -106,6 +122,7 @@ async function run() {
           {
             $project: {
               name: 1,
+              Price: 1,
               slots: 1,
               booked: {
                 $map: {
@@ -119,6 +136,7 @@ async function run() {
           {
             $project: {
               name: 1,
+              price: 1,
               slots: {
                 $setDifference: ["$slots", "$booked"],
               },
@@ -150,6 +168,13 @@ async function run() {
       const bookings = await bookingsCollection.find(query).toArray();
       res.send(bookings);
     });
+    //add booking and collection and ok----------.
+    app.get("/bookings/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const booking = await bookingsCollection.findOne(query);
+      res.send(booking);
+    });
 
     app.post("/bookings", async (req, res) => {
       const booking = req.body;
@@ -168,6 +193,22 @@ async function run() {
 
       res.send(result);
     });
+    //class 77-6 add payment and ------------------
+    app.post("/create-payment-intent", async (req, res) => {
+      const booking = req.body;
+      const price = booking.price;
+      const amount = price * 100;
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        currency: "usd",
+        amount: amount,
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
     // class 75 add jwt token ------------------------------..>
     app.get("/jwt", async (req, res) => {
       const email = req.query.email;
@@ -203,14 +244,16 @@ async function run() {
       res.send(result);
     });
     // class 8 add admin  and link ,//////////////////////////////
-    app.put("/users/admin/:id", verifyJWT, async (req, res) => {
+    app.put("/users/admin/:id", verifyJWT, verifyAdmin, async (req, res) => {
       // add veriyi add main admin and jwt  token and ;;;;;;;;;;;;;;;;.,
-      const decodedEmail = req.decoded.email;
-      const query = { email: decodedEmail };
-      const user = await usersCollection.findOne(query);
-      if (user?.role !== "admin") {
-        return res.status(403).send({ message: "forbidden access" });
-      }
+
+      //..class 76-ata delete cora hoiche and add hobe new verify
+      // const decodedEmail = req.decoded.email;
+      // const query = { email: decodedEmail };
+      // const user = await usersCollection.findOne(query);
+      // if (user?.role !== "admin") {
+      //   return res.status(403).send({ message: "forbidden access" });
+      // }
       //add admin verify admin.......................
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
@@ -227,18 +270,44 @@ async function run() {
       );
       res.send(result);
     });
+
+    // CLASS 77-1 ADD TOMPORARY TO UPDATE PRICE ON APPINTMENT OPTION
+
+    // app.get("/addPrice", async (req, res) => {
+    //   const filter = {};
+    //   const options = { upsert: true };
+    //   const updateDoc = {
+    //     $set: {
+    //       price: 99,
+    //     },
+    //   };
+    //   const result = appointmentOptionCollection.updateMany(
+    //     filter,
+    //     updateDoc,
+    //     options
+    //   );
+    //   res.send(result);
+    // });
+
     // class 76 -5  add doctors link create ...................
 
-    app.get("/doctors", async (req, res) => {
+    app.get("/doctors", verifyJWT, verifyAdmin, async (req, res) => {
       const query = {};
       const doctors = await doctorsCollection.find(query).toArray();
       res.send(doctors);
     });
 
     // class 76 -5  add doctors link create ...................
-    app.post("/doctors", async (req, res) => {
+    app.post("/doctors", verifyJWT, verifyAdmin, async (req, res) => {
       const doctor = req.body;
       const result = await doctorsCollection.insertOne(doctor);
+      res.send(result);
+    });
+    // add class delete button anandd----------------------
+    app.delete("/doctors/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const result = await doctorsCollection.deleteOne(filter);
       res.send(result);
     });
   } finally {
