@@ -1,4 +1,6 @@
 const express = require("express");
+require("dotenv").config();
+
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
@@ -6,7 +8,6 @@ const { query } = require("express");
 // const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
-require("dotenv").config();
 const port = process.env.PORT || 5000;
 const app = express();
 // middielware.............
@@ -230,7 +231,7 @@ async function run() {
       res.send(users);
     });
     // class admin  and ;;;;;;;;;;;;;;;;;;;;;;;;;;;.,.............
-    app.get("/users/admin/:email", async (req, res) => {
+    app.get("/create-payment-intent", async (req, res) => {
       const email = req.params.email;
       const query = { email };
       const user = await usersCollection.findOne(query);
