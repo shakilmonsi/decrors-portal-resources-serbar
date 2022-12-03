@@ -57,6 +57,11 @@ async function run() {
     const doctorsCollection = client
       .db("dectorProtealandddata")
       .collection("doctors");
+
+    const paymentsCollection = client
+      .db("dectorProtealandddata")
+      .collection("payments");
+
     //note: make sure you use verifyAdmin after verifyJWT;
     const verifyAdmin = async (req, res, next) => {
       // console.log("inside verifyAdmin", req.decoded.email);
@@ -198,8 +203,7 @@ async function run() {
     app.post("/create-payment-intent", async (req, res) => {
       const booking = req.body;
       const price = booking.price;
-      const amount = price * 100;
-
+      const amount = parseInt(price) * 100;
       const paymentIntent = await stripe.paymentIntents.create({
         currency: "usd",
         amount: amount,
@@ -209,7 +213,24 @@ async function run() {
         clientSecret: paymentIntent.client_secret,
       });
     });
-
+    // class 77-9 add a payment and link  of ok -------------
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+      const result = await paymentsCollection.insertOne(payment);
+      const id = payment.bookingId;
+      const filter = { _id: ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          paid: true,
+          transactionId: payment.transactionId,
+        },
+      };
+      const updatedResult = await bookingsCollection.updateOne(
+        filter,
+        updatedDoc
+      );
+      res.send(result);
+    });
     // class 75 add jwt token ------------------------------..>
     app.get("/jwt", async (req, res) => {
       const email = req.query.email;
@@ -231,11 +252,37 @@ async function run() {
       res.send(users);
     });
     // class admin  and ;;;;;;;;;;;;;;;;;;;;;;;;;;;.,.............
-    app.get("/create-payment-intent", async (req, res) => {
-      const email = req.params.email;
-      const query = { email };
-      const user = await usersCollection.findOne(query);
-      res.send({ isAdmin: user?.role === "admin" });
+    app.post("/create-payment-intent", async (req, res) => {
+      const booking = req.body;
+      const price = booking.price;
+      const amount = price * 100;
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        currency: "usd",
+        amount: amount,
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+      const result = await paymentsCollection.insertOne(payment);
+      const id = payment.bookingId;
+      const filter = { _id: ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          paid: true,
+          transactionId: payment.transactionId,
+        },
+      };
+      const updatedResult = await bookingsCollection.updateOne(
+        filter,
+        updatedDoc
+      );
+      res.send(result);
     });
 
     app.post("/users", async (req, res) => {
